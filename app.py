@@ -33,7 +33,7 @@ def calculate_risk(visit_id):
           LIMIT 1
         )
         SELECT
-          (EXTRACT(EPOCH FROM v.timestamp - vi.visit_date) / 3600)::int AS "HourOfObservation"
+          (EXTRACT(EPOCH FROM v.timestamp - vi.visit_date) / 3600)::int AS "HourOfObservation",
           p.age AS "PatientAge",
           vi.iculos AS "ICULengthOfStay",
           p.gender AS "PatientGender",
@@ -336,6 +336,7 @@ if st.session_state.logged_in:
             new_gender = st.selectbox("Gender", ["male", "female", "other"], key="new_gender")
             visit_date = st.date_input("Visit Date", key="new_visit_date")
             hosp_adm_time = st.number_input("Hospital Admission Time (hours since arrival)", min_value=0, key="new_hosp_adm_time")
+            location = st.text_input("Room Number", key="new_location")
             add_patient = st.form_submit_button("Add Patient")
 
         if add_patient:
