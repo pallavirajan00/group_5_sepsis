@@ -33,7 +33,7 @@ def calculate_risk(visit_id):
           LIMIT 1
         )
         SELECT
-          EXTRACT(HOUR FROM v.timestamp)::int AS "HourOfObservation",
+          (EXTRACT(EPOCH FROM v.timestamp - vi.visit_date) / 3600)::int AS "HourOfObservation"
           p.age AS "PatientAge",
           vi.iculos AS "ICULengthOfStay",
           p.gender AS "PatientGender",
@@ -63,7 +63,7 @@ def calculate_risk(visit_id):
     # If no data returned, cannot calculate risk
     if df.empty:
         return None
-    
+
     # Ensure correct feature order
     FEATURES = [
         "HourOfObservation","PatientAge","ICULengthOfStay","PatientGender",
@@ -140,7 +140,7 @@ if st.session_state.logged_in:
         st.session_state.show_all_patients = True
         st.rerun()
 
-    
+
 
 # ------------------------------
 # Show Login Form (only if not logged in)
@@ -259,7 +259,7 @@ if st.session_state.logged_in and st.session_state.get("show_all_patients"):
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
-    
+
 
 # ------------------------------
 # Main App Content
@@ -271,8 +271,8 @@ if st.session_state.logged_in:
     if st.button("View All Admitted Patients", key="main_all_patients_button"):
         st.session_state.show_all_patients = True
         st.rerun()
-    
-    
+
+
 
     with st.form("patient_search_form"):
         patient_id = st.text_input("Enter Patient ID")
@@ -382,7 +382,9 @@ if st.session_state.logged_in:
         conn_ilos.close()
         if ilos_row and ilos_row[0]:
             # calculate in days
-            dynamic_iculos = (datetime.now() - ilos_row[0]).total_seconds() / 86400
+            from datetime import time
+            visit_datetime = datetime.combine(ilos_row[0], time.min)
+            dynamic_iculos = (datetime.now() - visit_datetime).total_seconds() / 86400
             st.write(f"ICU Length of Stay: {dynamic_iculos:.2f} days")
             # Update ICULOS in the database
             conn_upd = get_connection()
@@ -492,7 +494,7 @@ if st.session_state.logged_in:
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
 
-        
+
 
     # Edit Patient Details Form
     # Edit Visit Details (all users)
@@ -512,7 +514,7 @@ if st.session_state.logged_in:
                 st.session_state.edit_location = visit_info[2]
                 st.session_state.show_edit_visit_form = True
             st.rerun()
-    
+
     if st.session_state.get("show_edit_visit_form"):
         with st.form("edit_visit_form"):
             new_visit_date = st.date_input("Visit Date", value=st.session_state.edit_visit_date, key="evd")
@@ -566,7 +568,7 @@ if st.session_state.logged_in:
             except Exception as e:
                 st.error(f"Update failed: {e}")
 
-    if st.session_state.get("show_entry_form"):    
+    if st.session_state.get("show_entry_form"):
         st.header("Enter Vitals and Lab Results")
 
         if not st.session_state.current_visit_id:
