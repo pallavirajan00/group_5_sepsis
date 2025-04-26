@@ -43,13 +43,22 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO sepsis_tool_admin;
 
 ## 3. Install Python Dependencies
 
-(Optionally inside a virtual environment)
+It is recommended to create a virtual environment before installing dependencies:
 
 ```bash
+# Create a virtual environment
+python3 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate  # On macOS/Linux
+venv\Scripts\activate     # On Windows
+
+# Install required packages
 pip install -r requirements.txt
 ```
 
-> Dependencies like `numpy` install automatically via pandas, scikit-learn, and xgboost.
+> Note: Dependencies like `numpy` will install automatically via pandas, scikit-learn, and xgboost.
+
 
 ## 4. Run the Application
 
