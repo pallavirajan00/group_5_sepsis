@@ -8,7 +8,7 @@ import joblib
 import pandas as pd
 
 # Load ML model (with preprocessing pipeline included)
-model = joblib.load("sepsis_model.pkl")
+model = joblib.load("ML_model_development/sepsis_model.pkl")
 
 def calculate_risk(visit_id):
     """
