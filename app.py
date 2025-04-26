@@ -73,8 +73,10 @@ def calculate_risk(visit_id):
         "TotalBilirubin","PlateletCount","LactateLevel"
     ]
     X = df[FEATURES]
+
     # Predict probability
     proba = model.predict_proba(X)[0,1]
+    #st.session_state.debug_X = X
     return float(proba)
 
 
@@ -167,6 +169,7 @@ if not st.session_state.logged_in:
 
 # ------------------------------
 # All Admitted Patients Page
+# ------------------------------
 if st.session_state.logged_in and st.session_state.get("show_all_patients"):
     st.header("All Admitted Patients")
     try:
@@ -497,133 +500,132 @@ if st.session_state.logged_in:
 
 
 
-    # Edit Patient Details Form
-    # Edit Visit Details (all users)
-    if st.session_state.patient_exists and st.session_state.current_visit_id:
-        if st.button("Edit Visit Details", key="edit_visit_button"):
-            # fetch current visit info
-            conn_v = get_connection()
-            cur_v = conn_v.cursor()
-            cur_v.execute("SELECT visit_date, hosp_adm_time, location FROM Visits WHERE visit_id = %s", (st.session_state.current_visit_id,))
-            visit_info = cur_v.fetchone()
-            cur_v.close()
-            conn_v.close()
-            if visit_info:
-                # initialize edit fields
-                st.session_state.edit_visit_date = visit_info[0]
-                st.session_state.edit_hosp_adm_time = visit_info[1]
-                st.session_state.edit_location = visit_info[2]
-                st.session_state.show_edit_visit_form = True
-            st.rerun()
-
-    if st.session_state.get("show_edit_visit_form"):
-        with st.form("edit_visit_form"):
-            new_visit_date = st.date_input("Visit Date", value=st.session_state.edit_visit_date, key="evd")
-            new_hosp_adm_time = st.number_input("Hospital Admission Time (hours since arrival)", min_value=0, value=st.session_state.edit_hosp_adm_time, key="ehat")
-            new_location = st.text_input("Room Number", value=st.session_state.edit_location, key="ev_location")
-            submit_visit = st.form_submit_button("Update Visit Details")
-        if submit_visit:
-            try:
-                conn_uv = get_connection()
-                cur_uv = conn_uv.cursor()
-                cur_uv.execute("UPDATE Visits SET visit_date = %s, hosp_adm_time = %s, location = %s WHERE visit_id = %s", (new_visit_date, new_hosp_adm_time, new_location, st.session_state.current_visit_id))
-                # Recalculate ICULOS in days and update
-                dynamic_iculos = (datetime.now() - datetime.combine(new_visit_date, datetime.min.time())).total_seconds() / 86400
-                cur_uv.execute("UPDATE Visits SET iculos = %s WHERE visit_id = %s", (dynamic_iculos, st.session_state.current_visit_id))
-                conn_uv.commit()
-                cur_uv.close()
-                conn_uv.close()
-                st.success("Visit details updated.")
-                st.session_state.show_edit_visit_form = False
-                st.rerun()
-            except Exception as e:
-                st.error(f"Update failed: {e}")
-
 # Edit Patient Details Form
-    if st.session_state.get("show_edit_form"):
-        with st.form("edit_patient_form"):
-            ef = st.text_input("First Name", value=st.session_state.edit_firstname, key="ef")
-            el = st.text_input("Last Name", value=st.session_state.edit_lastname, key="el")
-            ea = st.number_input("Age", value=st.session_state.edit_age, min_value=0, max_value=120, key="ea")
-            eg = st.selectbox("Gender", ["male", "female", "other"], index=["male","female","other"].index(st.session_state.edit_gender), key="eg")
-            save = st.form_submit_button("Update Details")
-        if save:
+if st.session_state.get("show_edit_form"):
+    with st.form("edit_patient_form"):
+        ef = st.text_input("First Name", value=st.session_state.edit_firstname, key="ef")
+        el = st.text_input("Last Name", value=st.session_state.edit_lastname, key="el")
+        ea = st.number_input("Age", min_value=0, max_value=120, value=int(st.session_state.edit_age), key="ea")
+        eg = st.selectbox("Gender", ["male", "female", "other"], 
+                          index=["male", "female", "other"].index(st.session_state.edit_gender), key="eg")
+        save = st.form_submit_button("Update Patient Details")
+    
+    if save:
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE Patients SET firstname=%s, lastname=%s, age=%s, gender=%s WHERE patient_id = %s",
+                (ef, el, ea, eg, st.session_state.last_patient_id)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            # Update session
+            st.session_state.firstname = ef
+            st.session_state.lastname = el
+            st.session_state.age = ea
+            st.session_state.gender = eg
+            st.session_state.show_edit_form = False
+            st.success("Patient details updated successfully.")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Update failed: {e}")
+
+# Edit Visit Details Form
+if st.session_state.get("show_edit_visit_form"):
+    with st.form("edit_visit_form"):
+        new_visit_date = st.date_input("Visit Date", value=st.session_state.edit_visit_date, key="evd")
+        new_hosp_adm_time = st.number_input("Hospital Admission Time (hours since arrival)", 
+                                            min_value=0.0, 
+                                            value=float(st.session_state.edit_hosp_adm_time), 
+                                            key="ehat")
+        new_location = st.text_input("Room Number", value=st.session_state.edit_location, key="ev_location")
+        submit_visit = st.form_submit_button("Update Visit Details")
+    
+    if submit_visit:
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            # Update visit details
+            cur.execute(
+                "UPDATE Visits SET visit_date=%s, hosp_adm_time=%s, location=%s WHERE visit_id=%s",
+                (new_visit_date, new_hosp_adm_time, new_location, st.session_state.current_visit_id)
+            )
+            # Update dynamic ICU Length of Stay
+            dynamic_iculos = (datetime.now() - datetime.combine(new_visit_date, datetime.min.time())).total_seconds() / 86400
+            cur.execute(
+                "UPDATE Visits SET iculos=%s WHERE visit_id=%s",
+                (dynamic_iculos, st.session_state.current_visit_id)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            st.session_state.show_edit_visit_form = False
+            st.success("Visit details updated successfully.")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Update failed: {e}")
+
+# Vitals and Labs Entry Form
+if st.session_state.get("show_entry_form"):
+    st.header("Enter Vitals and Lab Results")
+
+    if not st.session_state.current_visit_id:
+        st.error("No active visit ID. Please select or create a visit before entering vitals.")
+    else:
+        with st.form("vitals_labs_form", clear_on_submit=False):
+            st.subheader("Vitals")
+            temp = st.number_input("Temperature (°C)")
+            hr = st.number_input("Heart Rate (bpm)")
+            sbp = st.number_input("Systolic BP (mm Hg)")
+            dbp = st.number_input("Diastolic BP (mm Hg)")
+            map_ = st.number_input("MAP (mm Hg)")
+            resp = st.number_input("Respiration Rate (breaths/min)")
+            o2sat = st.number_input('Oxygen Saturation (%)', min_value=0.0, max_value=100.0)
+
+            st.subheader("Labs")
+            wbc = st.number_input("White Blood Cell Count")
+            creatinine = st.number_input("Creatinine")
+            bilirubin_total = st.number_input("Total Bilirubin")
+            bilirubin_direct = st.number_input("Direct Bilirubin")
+            platelets = st.number_input("Platelets")
+            lactate = st.number_input("Lactate")
+
+            submit_vitals_labs = st.form_submit_button("Submit Vitals and Labs")
+
+        if submit_vitals_labs:
             try:
                 conn = get_connection()
                 cur = conn.cursor()
-                cur.execute(
-                    "UPDATE Patients SET firstname=%s, lastname=%s, age=%s, gender=%s WHERE patient_id = %s",
-                    (st.session_state.edit_firstname, st.session_state.edit_lastname, st.session_state.edit_age, st.session_state.edit_gender, st.session_state.last_patient_id)
-                )
-                conn.commit()
+                timestamp = datetime.now()
+
+                cur.execute("INSERT INTO Vitals (visit_id, entered_by, temp, hr, sbp, dbp, map, resp, o2sat, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (st.session_state.current_visit_id, st.session_state.username, temp, hr, sbp, dbp, map_, resp, o2sat, timestamp))
+
+                cur.execute("INSERT INTO Labs (visit_id, entered_by, wbc, creatinine, bilirubin_total, bilirubin_direct, platelets, lactate, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (st.session_state.current_visit_id, st.session_state.username, wbc, creatinine, bilirubin_total, bilirubin_direct, platelets, lactate, timestamp))
+
+                                    # Compute sepsis risk via ML model
+                risk_score = calculate_risk(st.session_state.current_visit_id)
+                if risk_score is None:
+                    st.error("Cannot calculate risk: please ensure both vitals and labs are submitted.")
+                else:
+                    cur.execute(
+                        "INSERT INTO RiskScores (visit_id, score, generated_at) VALUES (%s, %s, %s)",
+                        (st.session_state.current_visit_id, risk_score, timestamp)
+                    )
+                    conn.commit()
                 cur.close()
                 conn.close()
-                # Reflect changes in session state
-                st.session_state.firstname = st.session_state.edit_firstname
-                st.session_state.lastname = st.session_state.edit_lastname
-                st.session_state.age = st.session_state.edit_age
-                st.session_state.gender = st.session_state.edit_gender
-                st.session_state.show_edit_form = False
-                st.success("Patient details updated.")
+
+                st.success("Vitals, labs, and risk score submitted successfully.")
+                st.session_state.latest_risk_score = risk_score
+                st.session_state.show_entry_form = False
                 st.rerun()
+
             except Exception as e:
-                st.error(f"Update failed: {e}")
-
-    if st.session_state.get("show_entry_form"):
-        st.header("Enter Vitals and Lab Results")
-
-        if not st.session_state.current_visit_id:
-            st.error("No active visit ID. Please select or create a visit before entering vitals.")
-        else:
-            with st.form("vitals_labs_form", clear_on_submit=False):
-                st.subheader("Vitals")
-                temp = st.number_input("Temperature (°C)")
-                hr = st.number_input("Heart Rate (bpm)")
-                sbp = st.number_input("Systolic BP (mm Hg)")
-                dbp = st.number_input("Diastolic BP (mm Hg)")
-                map_ = st.number_input("MAP (mm Hg)")
-                resp = st.number_input("Respiration Rate (breaths/min)")
-                o2sat = st.number_input('Oxygen Saturation (%)', min_value=0.0, max_value=100.0)
-
-                st.subheader("Labs")
-                wbc = st.number_input("White Blood Cell Count")
-                creatinine = st.number_input("Creatinine")
-                bilirubin_total = st.number_input("Total Bilirubin")
-                bilirubin_direct = st.number_input("Direct Bilirubin")
-                platelets = st.number_input("Platelets")
-                lactate = st.number_input("Lactate")
-
-                submit_vitals_labs = st.form_submit_button("Submit Vitals and Labs")
-
-            if submit_vitals_labs:
-                try:
-                    conn = get_connection()
-                    cur = conn.cursor()
-                    timestamp = datetime.now()
-
-                    cur.execute("INSERT INTO Vitals (visit_id, entered_by, temp, hr, sbp, dbp, map, resp, o2sat, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (st.session_state.current_visit_id, st.session_state.username, temp, hr, sbp, dbp, map_, resp, o2sat, timestamp))
-
-                    cur.execute("INSERT INTO Labs (visit_id, entered_by, wbc, creatinine, bilirubin_total, bilirubin_direct, platelets, lactate, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                (st.session_state.current_visit_id, st.session_state.username, wbc, creatinine, bilirubin_total, bilirubin_direct, platelets, lactate, timestamp))
-
-                                        # Compute sepsis risk via ML model
-                    risk_score = calculate_risk(st.session_state.current_visit_id)
-                    if risk_score is None:
-                        st.error("Cannot calculate risk: please ensure both vitals and labs are submitted.")
-                    else:
-                        cur.execute(
-                            "INSERT INTO RiskScores (visit_id, score, generated_at) VALUES (%s, %s, %s)",
-                            (st.session_state.current_visit_id, risk_score, timestamp)
-                        )
-                        conn.commit()
-                    cur.close()
-                    conn.close()
-
-                    st.success("Vitals, labs, and risk score submitted successfully.")
-                    st.session_state.latest_risk_score = risk_score
-                    st.session_state.show_entry_form = False
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                st.error(f"An error occurred: {e}")
+if "debug_X" in st.session_state:
+    st.subheader("DEBUG: Model Input to Predict")
+    st.dataframe(st.session_state.debug_X)
