@@ -363,7 +363,9 @@ if st.session_state.logged_in:
             except Exception as e:
                 st.error(f"An error occurred: {e}")
 
+# Create buttons for Edit Patient Details and Edit Visit Details
     if st.session_state.patient_exists and not st.session_state.show_entry_form:
+        
         # Edit Patient Details (all users)
         if st.button("Edit Patient Details", key="edit_patient_button"):
             st.session_state.show_edit_form = True
@@ -372,6 +374,23 @@ if st.session_state.logged_in:
             st.session_state.edit_age = st.session_state.get("age", 0)
             st.session_state.edit_gender = st.session_state.get("gender", "male")
             st.rerun()
+        
+        # Edit Visit Details (all users)
+        if st.button("Edit Visit Details", key="edit_visit_button"):
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT visit_date, hosp_adm_time, location FROM Visits WHERE visit_id = %s", 
+                    (st.session_state.current_visit_id,))
+            visit_info = cur.fetchone()
+            cur.close()
+            conn.close()
+            if visit_info:
+                st.session_state.edit_visit_date = visit_info[0]
+                st.session_state.edit_hosp_adm_time = visit_info[1]
+                st.session_state.edit_location = visit_info[2]
+                st.session_state.show_edit_visit_form = True
+                st.rerun()
+
         if st.session_state.patient_status == 'discharged':
             st.warning("This patient is currently discharged. You cannot enter new vitals or labs.")
         else:
@@ -498,8 +517,6 @@ if st.session_state.logged_in:
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
 
-
-
 # Edit Patient Details Form
 if st.session_state.get("show_edit_form"):
     with st.form("edit_patient_form"):
@@ -528,7 +545,7 @@ if st.session_state.get("show_edit_form"):
             st.session_state.gender = eg
             st.session_state.show_edit_form = False
             st.success("Patient details updated successfully.")
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Update failed: {e}")
 
@@ -536,9 +553,10 @@ if st.session_state.get("show_edit_form"):
 if st.session_state.get("show_edit_visit_form"):
     with st.form("edit_visit_form"):
         new_visit_date = st.date_input("Visit Date", value=st.session_state.edit_visit_date, key="evd")
+        hosp_adm_time_val = st.session_state.edit_hosp_adm_time or 0.0
         new_hosp_adm_time = st.number_input("Hospital Admission Time (hours since arrival)", 
                                             min_value=0.0, 
-                                            value=float(st.session_state.edit_hosp_adm_time), 
+                                            value=float(hosp_adm_time_val), 
                                             key="ehat")
         new_location = st.text_input("Room Number", value=st.session_state.edit_location, key="ev_location")
         submit_visit = st.form_submit_button("Update Visit Details")
@@ -563,7 +581,7 @@ if st.session_state.get("show_edit_visit_form"):
             conn.close()
             st.session_state.show_edit_visit_form = False
             st.success("Visit details updated successfully.")
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Update failed: {e}")
 
