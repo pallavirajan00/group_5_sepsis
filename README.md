@@ -1,61 +1,54 @@
-# Sepsis Risk Decision Support System
-
-This repository contains a Streamlit application, a PostgreSQL database schema, and a machine learning model for sepsis risk prediction.
+# Sepsis DSS - Project Setup Instructions
 
 ## Prerequisites
 
 - Python 3.8 or higher
-- PostgreSQL installed and running locally
-- The `psql` command-line tool available in your PATH
+- PostgreSQL installed and running
+- pgAdmin or psql command line tool available
 
 ## Repository Contents
 
 - `app.py`: Streamlit application code
-- `setup.sql`: SQL script to create the database, tables, and seed sample users
+- `setup.sql`: SQL script to create the database, tables, and sample users
 - `requirements.txt`: Python dependencies
-- `sepsis_model.pkl`: Pre-trained and pickled machine learning model
+- `sepsis_model.pkl`: Pre-trained machine learning model
 
 ## 1. Initialize the Database
 
-Run the following command from the project root to create the database and load schema and seed data:
+First, create the database:
 
 ```bash
-psql -U postgres -f setup.sql
+createdb sepsis_dss
 ```
 
-Note: If your PostgreSQL superuser is not `postgres`, replace `-U postgres` with your username.
+Then load the schema and seed data:
 
-## 2. Create Application User (Optional)
+```bash
+psql -U postgres -d sepsis_dss -f setup.sql
+```
 
-If the role `sepsis_tool_admin` does not exist, create it and grant privileges:
+> Note: Replace `-U postgres` if your superuser is different.
+
+## 2. Create Application User
+
+Create and grant access to `sepsis_tool_admin`:
 
 ```sql
 CREATE ROLE sepsis_tool_admin WITH LOGIN PASSWORD 'sepsis';
 GRANT ALL PRIVILEGES ON DATABASE sepsis_dss TO sepsis_tool_admin;
-```
-
-The application code uses these credentials:
-
-```python
-def get_connection():
-    return psycopg2.connect(
-        host="localhost",
-        database="sepsis_dss",
-        user="sepsis_tool_admin",
-        password="sepsis"
-    )
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sepsis_tool_admin;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO sepsis_tool_admin;
 ```
 
 ## 3. Install Python Dependencies
 
-Create and activate a virtual environment, then install dependencies:
+(Optionally inside a virtual environment)
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate   # macOS/Linux
-# .\venv\Scripts\activate # Windows
 pip install -r requirements.txt
 ```
+
+> Dependencies like `numpy` install automatically via pandas, scikit-learn, and xgboost.
 
 ## 4. Run the Application
 
@@ -65,18 +58,16 @@ Start the Streamlit app:
 streamlit run app.py
 ```
 
-Open a browser and go to `http://localhost:8501`.
+Access the app via your browser at `http://localhost:8501`.
 
-## 5. Application Workflow
+## 5. Login Credentials
 
-1. Log in as `nurse1` or `physician1` (password: `sepsis`).
-2. View the All Admitted Patients dashboard by default.
-3. Use the sidebar or main page to look up patients, enter or update vitals and labs, and calculate risk scores.
-4. Edit patient and visit details as needed.
+- Nurse: `nurse1` / `sepsis`
+- Physician: `physician1` / `sepsis`
 
 ## Troubleshooting
 
-- If port 8501 is in use, run `streamlit run app.py --server.port <port>`.
-- Ensure the database `sepsis_dss` exists and `setup.sql` ran without errors.
-- Verify the virtual environment is activated and dependencies are installed.
-
+- Ensure PostgreSQL is running.
+- Ensure you created the `sepsis_dss` database.
+- Ensure `setup.sql` completed without errors.
+- Ensure `sepsis_tool_admin` has all table and sequence privileges.

@@ -626,6 +626,8 @@ if st.session_state.get("show_entry_form"):
 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
+
+# uncomment line 79 to see this
 if "debug_X" in st.session_state:
     st.subheader("DEBUG: Model Input to Predict")
     st.dataframe(st.session_state.debug_X)
