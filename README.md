@@ -12,7 +12,8 @@
 - `setup.sql`: SQL script to create the database, tables, and sample users
 - `requirements.txt`: Python dependencies
 - `sepsis_model.pkl`: Pre-trained machine learning model
-- `ML_model_development/`: Project folder containing our machine learning model development code (for TA review only; users do not need to open or modify these files)
+- `ML_model_development`: Project folder containing our machine learning model development code (for TA review only; users do not need to open or modify these files)
+- `final_report.pdf`: Sepsis Prevention System Report
 
 ## 1. Initialize the Database
 
